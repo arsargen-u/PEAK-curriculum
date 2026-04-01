@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { STIMULUS_TYPE } from '../../data/directPrograms'
 import { saveImage, getProgramImages } from '../../store/db'
 import { Badge } from '../UI/Badge'
+import { ImageSearchPicker } from '../Library/ImageSearchPicker'
 
 const TYPE_LABELS = {
   [STIMULUS_TYPE.RECEPTIVE]: { label: 'Receptive', color: 'blue' },
@@ -20,6 +21,7 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
   const [customTarget, setCustomTarget] = useState('')
   const fileInputRef = useRef(null)
   const [pendingImageTarget, setPendingImageTarget] = useState(null)
+  const [searchPickerTarget, setSearchPickerTarget] = useState(null)
 
   const typeInfo = TYPE_LABELS[program.stimulusType] ?? { label: program.stimulusType, color: 'gray' }
 
@@ -173,25 +175,42 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
         {/* Image manager */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-800 mb-1">Stimulus Images</h3>
-          <p className="text-xs text-gray-500 mb-4">Upload an image for each target. Targets without images will display their text label during the session.</p>
+          <p className="text-xs text-gray-500 mb-4">Add images by searching Unsplash or uploading from your device. Targets without images show a placeholder during the session.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {selectedTargets.map(target => (
               <div key={target} className="flex flex-col items-center gap-2">
-                <button
-                  onClick={() => {
-                    setPendingImageTarget(target)
-                    fileInputRef.current.click()
-                  }}
-                  className="w-full aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 flex flex-col items-center justify-center overflow-hidden transition-colors bg-gray-50"
+                {/* Image preview / tap area */}
+                <div
+                  className="w-full aspect-square rounded-xl border-2 border-dashed border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center"
                 >
                   {images[target] ? (
-                    <img src={images[target]} alt={target} className="w-full h-full object-cover rounded-xl" />
+                    <img src={images[target]} alt={target} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl text-gray-300">+</span>
+                    <span className="text-4xl text-gray-200">🖼️</span>
                   )}
-                </button>
+                </div>
                 <span className="text-xs text-gray-600 font-medium text-center truncate w-full">{target}</span>
+                {/* Action buttons */}
+                <div className="flex gap-1.5 w-full">
+                  <button
+                    onClick={() => setSearchPickerTarget(target)}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors"
+                    title="Search Unsplash"
+                  >
+                    🔍 Search
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPendingImageTarget(target)
+                      fileInputRef.current.click()
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
+                    title="Upload from device"
+                  >
+                    ↑ Upload
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -207,6 +226,19 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
             }}
           />
         </div>
+
+        {/* Image search picker modal */}
+        {searchPickerTarget && (
+          <ImageSearchPicker
+            targetName={searchPickerTarget}
+            onSelect={async (dataUrl) => {
+              setImages(prev => ({ ...prev, [searchPickerTarget]: dataUrl }))
+              await saveImage(program.id, searchPickerTarget, dataUrl, 'unsplash')
+              setSearchPickerTarget(null)
+            }}
+            onClose={() => setSearchPickerTarget(null)}
+          />
+        )}
 
         {!canStart && (
           <p className="text-center text-sm text-amber-600 bg-amber-50 rounded-lg py-3">

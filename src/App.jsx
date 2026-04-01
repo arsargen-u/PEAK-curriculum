@@ -5,6 +5,7 @@ import { QuestionInterrupt } from './components/Session/QuestionInterrupt'
 import { GameSelector } from './components/Games/GameSelector'
 import { BubblePop } from './components/Games/BubblePop'
 import { FishCatch } from './components/Games/FishCatch'
+import { SettingsPanel } from './components/Settings/SettingsPanel'
 
 // App screens
 const SCREEN = {
@@ -24,6 +25,7 @@ export default function App() {
   const [questionActive, setQuestionActive] = useState(false)
   const [resumeCallback, setResumeCallback] = useState(null)
   const [sessionResults, setSessionResults] = useState([])
+  const [showSettings, setShowSettings] = useState(false)
 
   const handleSelectProgram = (program) => {
     setSelectedProgram(program)
@@ -77,14 +79,23 @@ export default function App() {
               📚 Library
             </NavTab>
           </div>
-          {sessionConfig && (
+          <div className="ml-auto flex items-center gap-3">
+            {sessionConfig && (
+              <button
+                onClick={() => setScreen(SCREEN.GAME_SELECT)}
+                className="text-sm text-indigo-200 hover:text-white underline"
+              >
+                Continue to game →
+              </button>
+            )}
             <button
-              onClick={() => setScreen(SCREEN.GAME_SELECT)}
-              className="ml-auto text-sm text-indigo-200 hover:text-white underline"
+              onClick={() => setShowSettings(true)}
+              className="text-sm text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              title="Settings"
             >
-              Continue to game →
+              ⚙ Settings
             </button>
-          )}
+          </div>
         </nav>
       )}
 
@@ -164,6 +175,9 @@ export default function App() {
           onComplete={handleQuestionComplete}
         />
       )}
+
+      {/* Settings panel */}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   )
 }
