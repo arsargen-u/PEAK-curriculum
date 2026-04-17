@@ -353,11 +353,11 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
                     🔍
                   </button>
                   <button
-                    onClick={() => { setPickerTarget(target); setPickerDefaultTab('google') }}
-                    className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition-colors"
-                    title="Search Google Images"
+                    onClick={() => { setPickerTarget(target); setPickerDefaultTab('pexels') }}
+                    className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition-colors"
+                    title="Search Pexels"
                   >
-                    🌐
+                    🌿
                   </button>
                   <button
                     onClick={() => {

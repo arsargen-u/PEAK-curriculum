@@ -151,39 +151,33 @@ function UnsplashTab({ targetName, onSelect }) {
   )
 }
 
-// --- Google tab ---
-function GoogleTab({ targetName, onSelect }) {
+// --- Pexels tab ---
+function PexelsTab({ targetName, onSelect }) {
   const [query, setQuery] = useState(targetName ?? '')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const search = async () => {
-    const apiKey = localStorage.getItem('google_api_key')
-    const cx = localStorage.getItem('google_cx')
-    if (!apiKey || !cx) { setError('Google API Key and Search Engine ID required — add them in ⚙ Settings.'); return }
+    const apiKey = localStorage.getItem('pexels_api_key')
+    if (!apiKey) { setError('No Pexels key set — add one in ⚙ Settings.'); return }
     if (!query.trim()) return
     setLoading(true); setError(null)
     try {
-      const url = `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&searchType=image&key=${apiKey}&cx=${cx}&num=10&imgSize=medium&safe=active`
-      const res = await fetch(url)
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error?.message ?? `Google error ${res.status}`)
-      }
+      const res = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=15&orientation=square`,
+        { headers: { Authorization: apiKey } }
+      )
+      if (!res.ok) throw new Error(`Pexels error ${res.status}`)
       const data = await res.json()
-      setResults(data.items ?? [])
+      setResults(data.photos ?? [])
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }
 
-  const handleSelect = async (item) => {
-    // Try to download and convert; fall back to direct URL
-    try { onSelect(await urlToBase64(item.link)) }
-    catch {
-      try { onSelect(await urlToBase64(item.image.thumbnailLink)) }
-      catch { onSelect(item.image.thumbnailLink) }
-    }
+  const handleSelect = async (photo) => {
+    try { onSelect(await urlToBase64(photo.src.medium)) }
+    catch { onSelect(photo.src.medium) }
   }
 
   return (
@@ -194,13 +188,14 @@ function GoogleTab({ targetName, onSelect }) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && search()}
-          placeholder="Search Google Images…"
+          placeholder="Search Pexels…"
           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          autoFocus
         />
         <button
           onClick={search}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
+          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
         >
           {loading ? '…' : 'Go'}
         </button>
@@ -208,22 +203,18 @@ function GoogleTab({ targetName, onSelect }) {
       {error && <p className="text-xs text-red-500 px-4 py-2">{error}</p>}
       <div className="flex-1 overflow-y-auto p-3">
         {results.length === 0 && !loading ? (
-          <div className="text-center py-12 text-gray-400 text-sm space-y-1">
-            {(!localStorage.getItem('google_api_key') || !localStorage.getItem('google_cx'))
-              ? <><p>Google API Key + Search Engine ID required.</p><p className="text-xs">Add them in ⚙ Settings.</p></>
-              : <p>Search for images above</p>
-            }
+          <div className="text-center py-12 text-gray-400 text-sm">
+            {localStorage.getItem('pexels_api_key') ? 'Search for photos above' : 'Add a Pexels API key in ⚙ Settings'}
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            {results.map((item, i) => (
-              <button key={i} onClick={() => handleSelect(item)}
-                className="aspect-square rounded-xl overflow-hidden hover:ring-4 hover:ring-blue-400 transition-all active:scale-95 bg-gray-100">
+            {results.map(photo => (
+              <button key={photo.id} onClick={() => handleSelect(photo)}
+                className="aspect-square rounded-xl overflow-hidden hover:ring-4 hover:ring-emerald-400 transition-all active:scale-95 bg-gray-100">
                 <img
-                  src={item.image.thumbnailLink}
-                  alt={item.title}
+                  src={photo.src.tiny}
+                  alt={photo.alt ?? ''}
                   className="w-full h-full object-cover"
-                  onError={e => { e.target.style.display = 'none' }}
                 />
               </button>
             ))}
@@ -231,7 +222,7 @@ function GoogleTab({ targetName, onSelect }) {
         )}
       </div>
       <p className="text-center text-xs text-gray-300 py-1.5 border-t border-gray-100 flex-shrink-0">
-        Powered by Google Custom Search
+        Photos from <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="underline">Pexels</a>
       </p>
     </div>
   )
@@ -241,7 +232,7 @@ function GoogleTab({ targetName, onSelect }) {
 const TABS = [
   { id: 'library',  label: '📚 Library' },
   { id: 'unsplash', label: '🔍 Unsplash' },
-  { id: 'google',   label: '🌐 Google' },
+  { id: 'pexels',   label: '🌿 Pexels' },
 ]
 
 export function ImagePicker({ targetName, onSelect, onClose, defaultTab = 'library' }) {
@@ -278,9 +269,9 @@ export function ImagePicker({ targetName, onSelect, onClose, defaultTab = 'libra
 
         {/* Tab content */}
         <div className="flex-1 min-h-0 flex flex-col">
-          {tab === 'library'  && <LibraryTab onSelect={onSelect} />}
+          {tab === 'library'  && <LibraryTab  onSelect={onSelect} />}
           {tab === 'unsplash' && <UnsplashTab targetName={targetName} onSelect={onSelect} />}
-          {tab === 'google'   && <GoogleTab  targetName={targetName} onSelect={onSelect} />}
+          {tab === 'pexels'   && <PexelsTab   targetName={targetName} onSelect={onSelect} />}
         </div>
       </div>
     </div>

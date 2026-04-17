@@ -69,35 +69,24 @@ export function SettingsPanel({ onClose }) {
 
           <div className="border-t border-gray-100" />
 
-          {/* Google */}
+          {/* Pexels */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Google Image Search</h3>
-            <div className="space-y-3">
-              <KeyField
-                label="API Key"
-                storageKey="google_api_key"
-                placeholder="Paste Google API Key…"
-                helpText="Create at"
-                helpUrl="https://console.cloud.google.com/apis/credentials"
-                helpLinkLabel="Google Cloud Console"
-              />
-              <KeyField
-                label="Search Engine ID (cx)"
-                storageKey="google_cx"
-                placeholder="e.g. 017576662512468239146:omuauf_lfve"
-                helpText="Create at"
-                helpUrl="https://programmablesearchengine.google.com/"
-                helpLinkLabel="programmablesearchengine.google.com"
-              />
-            </div>
-            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-700 space-y-1">
-              <p className="font-semibold">Google setup (3 steps):</p>
-              <ol className="list-decimal list-inside space-y-0.5 text-amber-600">
-                <li>Enable <strong>Custom Search JSON API</strong> in Cloud Console</li>
-                <li>Create an API Key under Credentials</li>
-                <li>Create a Search Engine → enable <em>Image search</em> + <em>Search the entire web</em></li>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Pexels Image Search</h3>
+            <KeyField
+              label="API Key"
+              storageKey="pexels_api_key"
+              placeholder="Paste Pexels API Key…"
+              helpText="Free at"
+              helpUrl="https://www.pexels.com/api/"
+              helpLinkLabel="pexels.com/api → Get Started"
+            />
+            <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 text-xs text-emerald-700">
+              <p className="font-semibold mb-1">Pexels setup (2 steps):</p>
+              <ol className="list-decimal list-inside space-y-0.5 text-emerald-600">
+                <li>Sign up free at <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer" className="underline">pexels.com/api</a> → click <strong>Get Started</strong></li>
+                <li>Copy your API key → paste above</li>
               </ol>
-              <p className="text-amber-500">Free tier: 100 searches/day</p>
+              <p className="text-emerald-500 mt-1.5">Free: 200 requests/hour, 20,000/month</p>
             </div>
           </div>
         </div>
