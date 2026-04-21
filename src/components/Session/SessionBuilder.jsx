@@ -32,6 +32,11 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
   const [pickerDefaultTab, setPickerDefaultTab] = useState('library')
   const [promptType, setPromptType] = useState('none')      // 'none' | 'positional' | 'stimulus'
   const [promptFading, setPromptFading] = useState('none')  // 'none' | 'fade3' | 'fade5' | 'fade10'
+  const [errorCorrection, setErrorCorrection] = useState(false)
+  // imageVariants: extra exemplar images per target { [targetName]: dataUrl[] }
+  const [imageVariants, setImageVariants] = useState({})
+  // pickerMode: 'primary' replaces main image; 'variant' appends to variants
+  const [pickerMode, setPickerMode] = useState('primary')
 
   const typeInfo = TYPE_LABELS[program.stimulusType] ?? { label: program.stimulusType, color: 'gray' }
 
@@ -109,8 +114,10 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
             arraySize,
             messyArray,
             images,
+            imageVariants,
             promptConfig: { type: promptType, fading: promptFading },
             trialSets,
+            errorCorrection: { enabled: errorCorrection },
           })}
           disabled={!canStart}
           className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-700 active:scale-95 transition-all"
@@ -317,74 +324,101 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
           </div>
         )}
 
-        {/* Image manager */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-800 mb-1">Stimulus Images</h3>
-          <p className="text-xs text-gray-500 mb-4">Add images by searching Unsplash or uploading from your device. Targets without images show a placeholder during the session.</p>
+        {/* Image manager — hidden for text-only programs like 10A */}
+        {program.needsPictures !== false && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 className="font-semibold text-gray-800 mb-1">Stimulus Images</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Add a primary image per target. Use <strong>＋ Variant</strong> to add extra exemplars — the trial will randomly pick one each time.
+            </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {activeItems.map(target => (
-              <div key={target} className="flex flex-col items-center gap-2">
-                {/* Image preview / tap area */}
-                <div
-                  className="w-full aspect-square rounded-xl border-2 border-dashed border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center"
-                >
-                  {images[target] ? (
-                    <img src={images[target]} alt={target} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-4xl text-gray-200">🖼️</span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-600 font-medium text-center truncate w-full">{target}</span>
-                {/* Action buttons */}
-                <div className="flex gap-1 w-full">
-                  <button
-                    onClick={() => { setPickerTarget(target); setPickerDefaultTab('library') }}
-                    className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors"
-                    title="Pick from library"
-                  >
-                    📚
-                  </button>
-                  <button
-                    onClick={() => { setPickerTarget(target); setPickerDefaultTab('unsplash') }}
-                    className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg text-xs font-semibold transition-colors"
-                    title="Search Unsplash"
-                  >
-                    🔍
-                  </button>
-                  <button
-                    onClick={() => { setPickerTarget(target); setPickerDefaultTab('pexels') }}
-                    className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition-colors"
-                    title="Search Pexels"
-                  >
-                    🌿
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPendingImageTarget(target)
-                      fileInputRef.current.click()
-                    }}
-                    className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
-                    title="Upload from device"
-                  >
-                    ↑
-                  </button>
-                </div>
-              </div>
-            ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {activeItems.map(target => {
+                const variantCount = imageVariants[target]?.length ?? 0
+                const totalImgs = (images[target] ? 1 : 0) + variantCount
+                return (
+                  <div key={target} className="flex flex-col items-center gap-2">
+                    {/* Primary image preview */}
+                    <div className="relative w-full aspect-square rounded-xl border-2 border-dashed border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center">
+                      {images[target] ? (
+                        <img src={images[target]} alt={target} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-4xl text-gray-200">🖼️</span>
+                      )}
+                      {/* Variant count badge */}
+                      {variantCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 bg-indigo-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                          +{variantCount}
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="text-xs text-gray-600 font-medium text-center truncate w-full">{target}</span>
+                    {totalImgs > 0 && (
+                      <span className="text-xs text-indigo-400">{totalImgs} image{totalImgs !== 1 ? 's' : ''} · picked randomly</span>
+                    )}
+
+                    {/* Primary image buttons */}
+                    <div className="flex gap-1 w-full">
+                      <button onClick={() => { setPickerMode('primary'); setPickerTarget(target); setPickerDefaultTab('library') }}
+                        className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors" title="Pick from library">
+                        📚
+                      </button>
+                      <button onClick={() => { setPickerMode('primary'); setPickerTarget(target); setPickerDefaultTab('unsplash') }}
+                        className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg text-xs font-semibold transition-colors" title="Search Unsplash">
+                        🔍
+                      </button>
+                      <button onClick={() => { setPickerMode('primary'); setPickerTarget(target); setPickerDefaultTab('pexels') }}
+                        className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition-colors" title="Search Pexels">
+                        🌿
+                      </button>
+                      <button
+                        onClick={() => { setPendingImageTarget(target); fileInputRef.current.click() }}
+                        className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors" title="Upload from device">
+                        ↑
+                      </button>
+                    </div>
+
+                    {/* Add variant row */}
+                    <div className="flex gap-1 w-full">
+                      <span className="text-xs text-gray-400 self-center mr-1 flex-shrink-0">＋ Variant:</span>
+                      <button onClick={() => { setPickerMode('variant'); setPickerTarget(target); setPickerDefaultTab('library') }}
+                        className="flex-1 flex items-center justify-center px-1 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors" title="Add variant from library">
+                        📚
+                      </button>
+                      <button onClick={() => { setPickerMode('variant'); setPickerTarget(target); setPickerDefaultTab('unsplash') }}
+                        className="flex-1 flex items-center justify-center px-1 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors" title="Add variant from Unsplash">
+                        🔍
+                      </button>
+                      <button onClick={() => { setPickerMode('variant'); setPickerTarget(target); setPickerDefaultTab('pexels') }}
+                        className="flex-1 flex items-center justify-center px-1 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors" title="Add variant from Pexels">
+                        🌿
+                      </button>
+                      {variantCount > 0 && (
+                        <button
+                          onClick={() => setImageVariants(prev => { const n = { ...prev }; delete n[target]; return n })}
+                          className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-400 rounded-lg text-xs font-semibold transition-colors" title="Clear variants">
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => {
+                if (pendingImageTarget) handleImageUpload(pendingImageTarget, e)
+                setPendingImageTarget(null)
+              }}
+            />
           </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={e => {
-              if (pendingImageTarget) handleImageUpload(pendingImageTarget, e)
-              setPendingImageTarget(null)
-            }}
-          />
-        </div>
+        )}
 
         {/* Image picker modal (Library / Unsplash / Google) */}
         {pickerTarget && (
@@ -392,13 +426,53 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
             targetName={pickerTarget}
             defaultTab={pickerDefaultTab}
             onSelect={async (dataUrl) => {
-              setImages(prev => ({ ...prev, [pickerTarget]: dataUrl }))
-              await saveImage(program.id, pickerTarget, dataUrl, pickerDefaultTab)
+              if (pickerMode === 'variant') {
+                // Append as extra exemplar
+                setImageVariants(prev => ({
+                  ...prev,
+                  [pickerTarget]: [...(prev[pickerTarget] ?? []), dataUrl],
+                }))
+              } else {
+                // Replace primary image
+                setImages(prev => ({ ...prev, [pickerTarget]: dataUrl }))
+                await saveImage(program.id, pickerTarget, dataUrl, pickerDefaultTab)
+              }
               setPickerTarget(null)
             }}
             onClose={() => setPickerTarget(null)}
           />
         )}
+
+        {/* Error Correction */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-800">Error Correction</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Re-present incorrect trials with an automatic positional prompt</p>
+            </div>
+            <button
+              onClick={() => setErrorCorrection(v => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                errorCorrection ? 'bg-indigo-600' : 'bg-gray-300'
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                errorCorrection ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+
+          {errorCorrection && (
+            <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-3 text-xs text-orange-700 space-y-1">
+              <p className="font-semibold">How it works:</p>
+              <ol className="list-decimal list-inside space-y-0.5 text-orange-600">
+                <li>Therapist scores <strong>✗ Incorrect</strong> → same array is shown again with a positional prompt</li>
+                <li>Up to 2 correction attempts before moving on</li>
+                <li>Tap <strong>← Skip</strong> at any time to bypass error correction</li>
+              </ol>
+            </div>
+          )}
+        </div>
 
         {!canStart && (
           <p className="text-center text-sm text-amber-600 bg-amber-50 rounded-lg py-3">

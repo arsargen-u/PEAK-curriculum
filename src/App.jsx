@@ -202,9 +202,11 @@ export default function App() {
           arraySize={sessionConfig.arraySize}
           messyArray={sessionConfig.messyArray}
           images={sessionConfig.images}
+          imageVariants={sessionConfig.imageVariants}
           promptConfig={sessionConfig.promptConfig}
           consecutiveCorrects={consecutiveCorrects}
           trialSets={sessionConfig.trialSets}
+          errorCorrectionEnabled={sessionConfig.errorCorrection?.enabled ?? false}
           onComplete={handleQuestionComplete}
           onSkip={() => {
             setQuestionActive(false)

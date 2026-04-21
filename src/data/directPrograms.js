@@ -319,7 +319,7 @@ export const directPrograms = [
     arraySize: { min: 3, max: 10, default: 5 },
     typicalStimuli: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
     imageCategory: 'letters',
-    needsPictures: true,
+    needsPictures: false,
     instructions: 'Place 3–10 letter cards. Ask "Which letter says [sound]?"',
   },
   {
