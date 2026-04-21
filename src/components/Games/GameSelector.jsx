@@ -36,6 +36,13 @@ export const GAMES = [
     description: 'Answer questions to unlock and fill a picture.',
     color: 'from-teal-400 to-green-500',
   },
+  {
+    id: 'dino',
+    name: 'Dino Feed',
+    emoji: '🦖',
+    description: 'Tap falling food to feed the hungry dinosaur!',
+    color: 'from-green-400 to-emerald-600',
+  },
 ]
 
 const DIFFICULTIES = [

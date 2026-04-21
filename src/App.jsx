@@ -8,6 +8,7 @@ import { FishCatch } from './components/Games/FishCatch'
 import { MemoryGame } from './components/Games/MemoryGame'
 import { CandyTrail } from './components/Games/CandyTrail'
 import { ColoringGame } from './components/Games/ColoringGame'
+import { DinoFeed } from './components/Games/DinoFeed'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { LibraryManager } from './components/Library/LibraryManager'
 
@@ -189,6 +190,9 @@ export default function App() {
             )}
             {selectedGame?.id === 'coloring' && (
               <ColoringGame onNeedQuestion={handleNeedQuestion} difficulty={difficulty} />
+            )}
+            {selectedGame?.id === 'dino' && (
+              <DinoFeed onNeedQuestion={handleNeedQuestion} difficulty={difficulty} />
             )}
           </div>
         )}
