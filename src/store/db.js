@@ -28,17 +28,6 @@ db.version(3).stores({
   programVariants: '++id, programId, targetName',
 })
 
-// v4: user-created programs (curriculum-agnostic)
-db.version(4).stores({
-  images: '++id, programId, targetName, imageUrl, imageData, source',
-  learners: '++id, name, createdAt',
-  sessions: '++id, learnerId, programId, date, score, trials',
-  activeProgramTargets: '++id, learnerId, programId, targets, arraySize, messyArray',
-  libraryImages: '++id, label, category, createdAt',
-  programVariants: '++id, programId, targetName',
-  programs: '++id, name, trialType, createdAt, updatedAt',
-})
-
 // --- Program stimulus images ---
 
 export async function saveImage(programId, targetName, imageData, source = 'upload') {
@@ -91,28 +80,6 @@ export function loadProgramConfig(programId) {
     const raw = localStorage.getItem(configKey(programId))
     return raw ? JSON.parse(raw) : null
   } catch (_) { return null }
-}
-
-// --- User-created programs ---
-
-export async function saveProgram(data) {
-  const now = new Date().toISOString()
-  if (data.id) {
-    const { id, ...updates } = data
-    await db.programs.update(id, { ...updates, updatedAt: now })
-    return id
-  }
-  return db.programs.add({ ...data, createdAt: now, updatedAt: now })
-}
-
-export async function getAllPrograms() {
-  return db.programs.orderBy('updatedAt').reverse().toArray()
-}
-
-export async function deleteProgram(id) {
-  await db.programs.delete(id)
-  await db.images.where('programId').equals(id).delete()
-  await db.programVariants.where('programId').equals(id).delete()
 }
 
 // --- Session logging ---
