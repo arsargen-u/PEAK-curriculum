@@ -65,10 +65,6 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
   // Custom target input
   const [customTargetInput, setCustomTargetInput] = useState('')
 
-  // Stimulus suggestions
-  const [stimSuggestions, setStimSuggestions]           = useState([])
-  const [stimSuggestionsLoading, setStimSuggestionsLoading] = useState(false)
-
   const typeInfo = TYPE_LABELS[program.stimulusType] ?? { label: program.stimulusType, color: 'gray' }
 
   // ── Load images & variants from IndexedDB on mount ─────────────────────────
@@ -144,67 +140,6 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
   const removeCustomTarget = (t) => {
     setSelectedTargets(prev => prev.filter(s => s !== t))
     setCustomTargets(prev => prev.filter(s => s !== t))
-  }
-
-  // Debounced Unsplash suggestions while typing a custom stimulus
-  useEffect(() => {
-    const apiKey = localStorage.getItem('unsplash_access_key')
-    if (!apiKey || customTargetInput.trim().length < 2) {
-      setStimSuggestions([])
-      return
-    }
-    setStimSuggestionsLoading(true)
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(customTargetInput.trim())}&per_page=12&orientation=squarish`,
-          { headers: { Authorization: `Client-ID ${apiKey}` } }
-        )
-        if (!res.ok) throw new Error()
-        const data = await res.json()
-        const photos = data.results ?? []
-        const labelMap = new Map()
-        photos.forEach(photo => {
-          const tags = photo.tags ?? []
-          const mainTag = tags.find(t => t.type === 'landing_page') ?? tags[0]
-          if (mainTag?.title) {
-            const label = mainTag.title.toLowerCase()
-            if (!labelMap.has(label)) labelMap.set(label, { count: 1, photo })
-            else labelMap.get(label).count++
-          }
-        })
-        const sorted = [...labelMap.entries()]
-          .sort((a, b) => b[1].count - a[1].count)
-          .slice(0, 8)
-          .map(([label, { photo }]) => ({ label, thumbUrl: photo.urls.thumb, smallUrl: photo.urls.small }))
-        setStimSuggestions(sorted)
-      } catch {
-        setStimSuggestions([])
-      } finally {
-        setStimSuggestionsLoading(false)
-      }
-    }, 600)
-    return () => { clearTimeout(timer); setStimSuggestionsLoading(false) }
-  }, [customTargetInput])
-
-  const addStimulusSuggestion = async (suggestion) => {
-    const t = suggestion.label
-    if (selectedTargets.includes(t)) return
-    setSelectedTargets(prev => [...prev, t])
-    if (!program.typicalStimuli.includes(t)) setCustomTargets(prev => [...prev, t])
-    setCustomTargetInput('')
-    setStimSuggestions([])
-    try {
-      const res = await fetch(suggestion.smallUrl)
-      const blob = await res.blob()
-      const dataUrl = await new Promise(resolve => {
-        const reader = new FileReader()
-        reader.onload = e => resolve(e.target.result)
-        reader.readAsDataURL(blob)
-      })
-      setImages(prev => ({ ...prev, [t]: dataUrl }))
-      await saveImage(program.id, t, dataUrl, 'unsplash')
-    } catch { /* target still added, just no image */ }
   }
 
   const addCustomTarget = () => {
@@ -523,27 +458,6 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
                 Add
               </button>
             </div>
-            {stimSuggestionsLoading && (
-              <p className="text-xs text-gray-400 mt-2">Finding suggestions…</p>
-            )}
-            {!stimSuggestionsLoading && stimSuggestions.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs text-gray-500 font-medium mb-2">Suggested — tap to add with image</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                  {stimSuggestions.map(s => (
-                    <button
-                      key={s.label}
-                      onClick={() => addStimulusSuggestion(s)}
-                      disabled={selectedTargets.includes(s.label)}
-                      className="flex-shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:border-indigo-400 disabled:opacity-40 disabled:cursor-default bg-gray-50 transition-all active:scale-95"
-                    >
-                      <img src={s.thumbUrl} alt={s.label} className="w-14 h-14 rounded-lg object-cover" />
-                      <span className="text-xs text-gray-600 w-14 text-center leading-tight truncate">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -592,10 +506,6 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
                         className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors" title="Pick from library">
                         📚
                       </button>
-                      <button onClick={() => { setPickerMode('primary'); setPickerTarget(target); setPickerDefaultTab('unsplash') }}
-                        className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg text-xs font-semibold transition-colors" title="Search Unsplash">
-                        🔍
-                      </button>
                       <button onClick={() => { setPickerMode('primary'); setPickerTarget(target); setPickerDefaultTab('pexels') }}
                         className="flex-1 flex items-center justify-center px-1.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition-colors" title="Search Pexels">
                         🌿
@@ -613,10 +523,6 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
                       <button onClick={() => { setPickerMode('variant'); setPickerTarget(target); setPickerDefaultTab('library') }}
                         className="flex-1 flex items-center justify-center px-1 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors" title="Add variant from library">
                         📚
-                      </button>
-                      <button onClick={() => { setPickerMode('variant'); setPickerTarget(target); setPickerDefaultTab('unsplash') }}
-                        className="flex-1 flex items-center justify-center px-1 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors" title="Add variant from Unsplash">
-                        🔍
                       </button>
                       <button onClick={() => { setPickerMode('variant'); setPickerTarget(target); setPickerDefaultTab('pexels') }}
                         className="flex-1 flex items-center justify-center px-1 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors" title="Add variant from Pexels">
