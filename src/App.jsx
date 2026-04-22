@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { initAppDefaults } from './utils/defaults'
 import { ProgramLibrary } from './components/Library/ProgramLibrary'
 import { SessionBuilder } from './components/Session/SessionBuilder'
 import { QuestionInterrupt } from './components/Session/QuestionInterrupt'
@@ -21,6 +22,9 @@ const SCREEN = {
 }
 
 export default function App() {
+  // Seed API keys and other defaults on first launch
+  useEffect(() => { initAppDefaults() }, [])
+
   const [screen, setScreen] = useState(SCREEN.LIBRARY)
   const [selectedProgram, setSelectedProgram] = useState(null)
   const [sessionConfig, setSessionConfig] = useState(null)

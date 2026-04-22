@@ -130,3 +130,22 @@ export async function deleteLibraryImage(id) {
 export async function clearLibrary() {
   return db.libraryImages.clear()
 }
+
+/**
+ * Bulk-import images from a library export JSON.
+ * @param {Array}   images  — array of { label, category, imageData, source }
+ * @param {boolean} replace — if true, clears existing library first
+ */
+export async function importLibraryImages(images, replace = false) {
+  if (replace) await db.libraryImages.clear()
+  const now = Date.now()
+  return db.libraryImages.bulkAdd(
+    images.map((img, i) => ({
+      label:     img.label     ?? '',
+      category:  img.category  ?? null,
+      imageData: img.imageData ?? '',
+      source:    img.source    ?? 'import',
+      createdAt: now + i,       // preserve import order
+    }))
+  )
+}

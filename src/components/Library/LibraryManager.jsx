@@ -4,6 +4,7 @@ import {
   addLibraryImage,
   updateLibraryImage,
   deleteLibraryImage,
+  importLibraryImages,
 } from '../../store/db'
 import { compressImage } from '../../utils/imageUtils'
 
@@ -117,10 +118,60 @@ function UploadModal({ folders, defaultFolder, onUpload, onClose }) {
   )
 }
 
+// ── Import confirmation modal ────────────────────────────────────────────────
+function ImportModal({ data, onConfirm, onClose }) {
+  const imgCount    = data.images?.length ?? 0
+  const folderCount = data.customFolders?.length ?? 0
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-lg">Import Library</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
+        </div>
+
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-indigo-800 space-y-1">
+          <p className="font-semibold">File contents:</p>
+          <p>📸 {imgCount} image{imgCount !== 1 ? 's' : ''}</p>
+          {folderCount > 0 && <p>📁 {folderCount} custom folder{folderCount !== 1 ? 's' : ''}</p>}
+          {data.exportedAt && (
+            <p className="text-xs text-indigo-500 mt-1">
+              Exported {new Date(data.exportedAt).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+
+        <p className="text-sm text-gray-600">How would you like to import?</p>
+
+        <div className="space-y-2">
+          <button
+            onClick={() => onConfirm(false)}
+            className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all"
+          >
+            ＋ Add to existing library
+          </button>
+          <button
+            onClick={() => onConfirm(true)}
+            className="w-full py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-semibold hover:bg-red-100 active:scale-95 transition-all"
+          >
+            ↺ Replace everything
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export function LibraryManager() {
   const [folders, setFolders] = useState(loadFolders)
-  const [activeFolder, setActiveFolder] = useState('__all__')  // '__all__' = show everything
+  const [activeFolder, setActiveFolder] = useState('__all__')
   const [images, setImages] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -130,6 +181,10 @@ export function LibraryManager() {
   const [showUpload, setShowUpload] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [pendingImport, setPendingImport] = useState(null)
+  const importFileRef = useRef(null)
 
   const reload = async () => {
     setLoading(true)
@@ -167,6 +222,74 @@ export function LibraryManager() {
     }
     reload()
     if (folderId) setActiveFolder(folderId)
+  }
+
+  // ── Export library ───────────────────────────────────────────────────────
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const allImages = await getAllLibraryImages()
+      const customFolders = folders.filter(f => !DEFAULT_FOLDERS.find(d => d.id === f.id))
+      const payload = {
+        peakLibraryVersion: 1,
+        exportedAt: new Date().toISOString(),
+        customFolders,
+        images: allImages.map(({ label, category, imageData, source }) => ({
+          label, category, imageData, source,
+        })),
+      }
+      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `PEAK-library-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // ── Import library ───────────────────────────────────────────────────────
+  const handleImportFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    e.target.value = ''   // reset so same file can be re-selected
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (!data.peakLibraryVersion || !Array.isArray(data.images)) {
+          throw new Error('Not a valid PEAK library file')
+        }
+        setPendingImport(data)
+      } catch (err) {
+        alert('Could not read library file: ' + err.message)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleConfirmImport = async (replace) => {
+    if (!pendingImport) return
+    setImporting(true)
+    try {
+      // Merge custom folders (skip ones already present)
+      if (pendingImport.customFolders?.length) {
+        const existingIds = new Set(folders.map(f => f.id))
+        const newFolders  = pendingImport.customFolders.filter(f => !existingIds.has(f.id))
+        if (newFolders.length) {
+          const updated = [...folders, ...newFolders]
+          setFolders(updated)
+          saveCustomFolders(updated)
+        }
+      }
+      await importLibraryImages(pendingImport.images, replace)
+      setPendingImport(null)
+      await reload()
+    } finally {
+      setImporting(false)
+    }
   }
 
   // ── Create new folder ────────────────────────────────────────────────────
@@ -291,20 +414,51 @@ export function LibraryManager() {
       {/* ── Main content ───────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
-        <div className="bg-white border-b border-gray-200 px-5 py-3 flex gap-3 items-center flex-shrink-0">
+        <div className="bg-white border-b border-gray-200 px-5 py-3 flex gap-2 items-center flex-shrink-0 flex-wrap">
           <input
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by label…"
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
+
+          {/* Upload */}
           <button
             onClick={() => setShowUpload(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 flex-shrink-0"
           >
             ↑ Upload
           </button>
+
+          {/* Export */}
+          <button
+            onClick={handleExport}
+            disabled={exporting || images.length === 0}
+            title="Export library as a shareable file"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 flex-shrink-0"
+          >
+            {exporting ? '…' : '⬇ Export'}
+          </button>
+
+          {/* Import */}
+          <button
+            onClick={() => importFileRef.current?.click()}
+            disabled={importing}
+            title="Import a library file from another device"
+            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 flex-shrink-0"
+          >
+            {importing ? '…' : '⬆ Import'}
+          </button>
+
+          {/* Hidden file input for import */}
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFileChange}
+          />
         </div>
 
         {/* Folder heading */}
@@ -396,6 +550,15 @@ export function LibraryManager() {
           defaultFolder={activeFolder === '__all__' || activeFolder === '__none__' ? '' : activeFolder}
           onUpload={handleUpload}
           onClose={() => setShowUpload(false)}
+        />
+      )}
+
+      {/* Import confirmation modal */}
+      {pendingImport && (
+        <ImportModal
+          data={pendingImport}
+          onConfirm={handleConfirmImport}
+          onClose={() => setPendingImport(null)}
         />
       )}
     </div>
