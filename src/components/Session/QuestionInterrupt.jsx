@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { STIMULUS_TYPE } from '../../data/directPrograms'
 
 function shuffle(arr) {
   const a = [...arr]
@@ -93,7 +92,7 @@ export function QuestionInterrupt({
     return promptConfig.type
   }, [promptConfig, consecutiveCorrects])
 
-  const isTact = program.stimulusType === STIMULUS_TYPE.TACT
+  const isTact = program.stimulusType === 'tact'
 
   // ── Selection state ────────────────────────────────────────────────────────
   const [selected, setSelected] = useState(null)
@@ -148,7 +147,7 @@ export function QuestionInterrupt({
 
         <div className="flex-1 min-w-0">
           <p className="text-xs text-indigo-200 font-medium uppercase tracking-wide truncate">
-            {program.code} · {program.name}
+            {program.name}
           </p>
           <p className="text-lg font-bold mt-0.5 leading-tight">
             {!isTact
