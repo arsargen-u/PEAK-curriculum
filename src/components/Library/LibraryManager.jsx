@@ -5,6 +5,7 @@ import {
   updateLibraryImage,
   deleteLibraryImage,
 } from '../../store/db'
+import { compressImage } from '../../utils/imageUtils'
 
 // ── Default folders aligned to PEAK program content areas ──────────────────
 const DEFAULT_FOLDERS = [
@@ -156,15 +157,15 @@ export function LibraryManager() {
   const handleUpload = async (files, folderId) => {
     for (const file of files) {
       const label = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-      const imageData = await new Promise(resolve => {
+      const raw = await new Promise(resolve => {
         const reader = new FileReader()
         reader.onload = ev => resolve(ev.target.result)
         reader.readAsDataURL(file)
       })
+      const imageData = await compressImage(raw)
       await addLibraryImage({ label, imageData, source: 'upload', category: folderId || null })
     }
     reload()
-    // Jump to the uploaded folder
     if (folderId) setActiveFolder(folderId)
   }
 

@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getAllLibraryImages, searchLibraryImages } from '../../store/db'
+import { compressImage } from '../../utils/imageUtils'
 
 // --- helpers ---
 async function urlToBase64(url) {
   const res = await fetch(url)
   const blob = await res.blob()
-  return new Promise((resolve, reject) => {
+  const raw = await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = e => resolve(e.target.result)
     reader.onerror = reject
     reader.readAsDataURL(blob)
   })
+  return compressImage(raw)
 }
 
 // --- Library tab ---

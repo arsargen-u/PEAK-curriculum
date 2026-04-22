@@ -5,6 +5,7 @@ import {
   saveVariant, getProgramVariants, clearTargetVariants, deleteVariant,
   saveProgramConfig, loadProgramConfig,
 } from '../../store/db'
+import { compressImage } from '../../utils/imageUtils'
 import { Badge } from '../UI/Badge'
 import { ImagePicker } from '../Library/ImagePicker'
 
@@ -163,7 +164,7 @@ export function SessionBuilder({ program, onStartSession, onBack }) {
     if (!file) return
     const reader = new FileReader()
     reader.onload = async (ev) => {
-      const dataUrl = ev.target.result
+      const dataUrl = await compressImage(ev.target.result)
       setImages(prev => ({ ...prev, [targetName]: dataUrl }))
       await saveImage(program.id, targetName, dataUrl, 'upload')
     }
