@@ -25,16 +25,54 @@ const C = {
 // ── Wikipedia image cache (module-level, shared across all uses) ──
 export const imgCache = {};
 
+/** Fetch a Wikipedia thumbnail URL for a given term.
+ *  1. Tries the REST summary API directly (fast, works for exact article titles).
+ *  2. Falls back to OpenSearch if no thumbnail found (handles near-misses and
+ *     descriptive phrases by finding the best matching Wikipedia article). */
+async function fetchWikiImgUrl(term) {
+  // Step 1 — direct REST lookup
+  try {
+    const r = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`
+    );
+    if (r.ok) {
+      const d = await r.json();
+      if (d.thumbnail?.source) return d.thumbnail.source;
+    }
+  } catch (_) {}
+
+  // Step 2 — OpenSearch fallback: find the canonical article title
+  try {
+    const r = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(term)}&limit=1&format=json&origin=*`
+    );
+    const [, titles] = await r.json();
+    const title = titles?.[0];
+    if (title) {
+      const r2 = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+      );
+      if (r2.ok) {
+        const d = await r2.json();
+        if (d.thumbnail?.source) return d.thumbnail.source;
+      }
+    }
+  } catch (_) {}
+
+  return null;
+}
+
 function useWikiImg(term) {
   const [src, setSrc] = useState(imgCache[term] ?? null);
   const [status, setStatus] = useState(imgCache[term] !== undefined ? 'done' : 'loading');
   useEffect(() => {
     if (!term) return;
     if (imgCache[term] !== undefined) { setSrc(imgCache[term]); setStatus('done'); return; }
-    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`)
-      .then(r => r.json())
-      .then(d => { const u = d.thumbnail?.source ?? null; imgCache[term] = u; setSrc(u); setStatus('done'); })
-      .catch(() => { imgCache[term] = null; setStatus('done'); });
+    fetchWikiImgUrl(term).then(u => {
+      imgCache[term] = u;
+      setSrc(u);
+      setStatus('done');
+    });
   }, [term]);
   return { src, loading: status === 'loading' };
 }

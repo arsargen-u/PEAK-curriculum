@@ -20,18 +20,53 @@ async function urlToBase64(url) {
 
 // ─── Variant → data URL conversion ─────────────────────────────────────────
 
-/** Fetch a Wikipedia thumbnail and return a compressed JPEG data URL */
-async function wikiVariantToDataUrl(term) {
-  // Reuse cached URL if PictureLibrary already fetched it
-  let src = imgCache[term]
-  if (src === undefined) {
-    const res = await fetch(
+/** Fetch a Wikipedia thumbnail URL, with OpenSearch fallback for near-misses */
+async function fetchWikiImgUrl(term) {
+  // Reuse cache populated by PictureLibrary's useWikiImg
+  if (imgCache[term] !== undefined) return imgCache[term]
+
+  // Step 1 — direct REST lookup
+  try {
+    const r = await fetch(
       `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`
     )
-    const d = await res.json()
-    src = d.thumbnail?.source ?? null
-    imgCache[term] = src
-  }
+    if (r.ok) {
+      const d = await r.json()
+      if (d.thumbnail?.source) {
+        imgCache[term] = d.thumbnail.source
+        return d.thumbnail.source
+      }
+    }
+  } catch (_) {}
+
+  // Step 2 — OpenSearch fallback: find canonical article title
+  try {
+    const r = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(term)}&limit=1&format=json&origin=*`
+    )
+    const [, titles] = await r.json()
+    const title = titles?.[0]
+    if (title) {
+      const r2 = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+      )
+      if (r2.ok) {
+        const d = await r2.json()
+        if (d.thumbnail?.source) {
+          imgCache[term] = d.thumbnail.source
+          return d.thumbnail.source
+        }
+      }
+    }
+  } catch (_) {}
+
+  imgCache[term] = null
+  return null
+}
+
+/** Fetch a Wikipedia thumbnail and return a compressed JPEG data URL */
+async function wikiVariantToDataUrl(term) {
+  const src = await fetchWikiImgUrl(term)
   if (!src) throw new Error(`No Wikipedia thumbnail for: ${term}`)
   return urlToBase64(src)
 }
